@@ -14,16 +14,16 @@ class TNet(nn.Module):
         self. k = k
         # Each layer has batchnorm and relu on it
         # conv 3 64
-        self.conv1 = nn.Conv2d(in_channels = 3, out_channels = 64, kernel_size = 3,stride = 1)
+        self.conv1 = nn.Conv2d(in_channels = 3, out_channels = 64, kernel_size = 1,stride = 1)
         self.bachnorm1 = nn.BatchNorm2d(num_features = 64)
         # conv 64 128
-        self.conv2 = nn.Conv2d(in_channels = 64, out_channels = 128, kernel_size = 3, stride = 1)
+        self.conv2 = nn.Conv2d(in_channels = 64, out_channels = 128, kernel_size = 1, stride = 1)
         self.bachnorm2 = nn.BatchNorm2d(num_features = 128)
         # conv 128 1024
-        self.conv3 = nn.Conv2d(in_channels = 128, out_channels = 1024, kernel_size = 3, stride = 1)
+        self.conv3 = nn.Conv2d(in_channels = 128, out_channels = 1024, kernel_size = 1, stride = 1)
         self.bachnorm3 = nn.BatchNorm2d(num_features = 1024)
         # max pool
-        self.max_pool = nn.MaxPool2d(kernel_size = 3, stride = 1, padding = 1)
+        self.max_pool = nn.MaxPool2d(kernel_size = 1)
         # fc 1024 512
         self.fc1 = nn.Linear(in_features = 1024, out_features = 512)
         self.batchnorm_fc1 = nn.BatchNorm2d(num_features = 512)
@@ -44,7 +44,7 @@ class TNet(nn.Module):
         x = nn.functional.relu(self.bachnorm2(self.conv2(x)))
         x = nn.functional.relu(self.bachnorm3(self.conv3(x)))
 
-        x = self.max_pool(X)
+        x = self.max_pool(x)
 
         x = nn.functional.relu(self.bachnorm_fc1(self.fc1(x)))
         x = nn.functional.relu(self.bachnorm_fc2(self.fc2(x)))
@@ -54,7 +54,6 @@ class TNet(nn.Module):
         x = x + self.bias
 
         x = torch.reshape(x,(self.k,self.k))
-
         
         return x
 
@@ -63,26 +62,48 @@ class PointNetfeat(nn.Module):
     def __init__(self, global_feat = True, feature_transform = False):
         super(PointNetfeat, self).__init__()
         # Use TNet to apply transformation on input and multiply the input points with the transformation
+        self.tNet_input = TNet(k=3)
         # conv 3 64
+        self.conv1 = nn.Conv2d(in_channels = 3, out_channels = 64, kernel_size = 3)
+        self.batchnorm1 = nn.BatchNorm2d(num_features = 64)
         # Use TNet to apply transformation on features and multiply the input features with the transformation 
-        #                                                                        (if feature_transform is true)
+        #                                                                       (if feature_transform is true)
+        if feature_transform:
+            self.tNet_feature = TNet(k=64)
         # conv 64 128
+        self.conv2 = nn.Conv2d(in_channels = 64, out_channels = 128, kernel_size = 3)
+        self.batchnorm2 = nn.BatchNorm2d(num_features = 128)
         # conv 128 1024 (no relu)
+        self.conv3 = nn.Conv2d(in_channels = 64, out_channels = 128, kernel_size = 3)
+        self.batchnorm3 = nn.BatchNorm2d(num_features = 128)
         # max pool
+        self.max_pool = nn.MaxPool2d(kernel_size = 1)
+        self.global_feat = global_feat
+        self.feature_transform = feature_transform
 
     def forward(self, x):
         n_pts = x.size()[2]
 
         # You will need these extra outputs:
         # trans = output of applying TNet function to input
+        trans = self.tNet_input(x)
         # trans_feat = output of applying TNet function to features (if feature_transform is true)
+
+        x = nn.functional.relu(self.batchnorm1(self.conv1(trans)))
+        trans_feat = x
+
+        if self.feature_transform:
+            trans_feat = self.tNet_feature(x)
+
+        x =  nn.functional.relu(self.batchnorm2(self.conv2(trans_feat)))
+        x =  nn.functional.relu(self.batchnorm3(self.conv3(trans_feat)))
+        x = self.max_pool(x)
 
         if self.global_feat: # This shows if we're doing classification or segmentation
             return x, trans, trans_feat
         else:
             x = x.view(-1, 1024, 1).repeat(1, 1, n_pts)
             return torch.cat([x, pointfeat], 1), trans, trans_feat
-        return 1
 
 class PointNetCls(nn.Module):
     def __init__(self, k = 2, feature_transform=False):
@@ -108,12 +129,18 @@ class PointNetCls(nn.Module):
 class PointNetDenseCls(nn.Module):
     def __init__(self, k = 2, feature_transform=False):
         super(PointNetDenseCls, self).__init__()
+        self.feature_transform = feature_transform
         # get global features + point features from PointNetfeat
         # conv 1088 512
+        self.conv1 = nn.Conv2d(in_channels = 1088, out_channels = 512, kernel_size = 3)
         # conv 512 256
+        self.conv2 = nn.Conv2d(in_channels = 512, out_channels = 256, kernel_size = 3)
         # conv 256 128
+        self.conv1 = nn.Conv2d(in_channels = 256, out_channels = 128, kernel_size = 3)
         # conv 128 k
-        # softmax 
+        self.conv1 = nn.Conv2d(in_channels = 125, out_channels = k, kernel_size = 3)
+        # softmax
+         
     
     def forward(self, x):
         # You will need these extra outputs: 
@@ -124,6 +151,11 @@ class PointNetDenseCls(nn.Module):
 
 def feature_transform_regularizer(trans):
     # compute |((trans * trans.transpose) - I)|^2
+
+    k = trans.shape[1]
+    I = torch.ones((k,k))
+    AAT = torch.bmm(trans,torch.transpose(trans,1,2))
+    loss = torch.mean((AAT-I)**2,dim=0)
     
     return loss
 
