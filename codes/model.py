@@ -53,7 +53,7 @@ class TNet(nn.Module):
         x = x * self.weight
         x = x + self.bias
 
-        x = torch.reshape(x,(self.k,self.k)
+        x = torch.reshape(x,(self.k,self.k))
 
         
         return x
@@ -82,6 +82,7 @@ class PointNetfeat(nn.Module):
         else:
             x = x.view(-1, 1024, 1).repeat(1, 1, n_pts)
             return torch.cat([x, pointfeat], 1), trans, trans_feat
+        return 1
 
 class PointNetCls(nn.Module):
     def __init__(self, k = 2, feature_transform=False):
