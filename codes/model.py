@@ -165,6 +165,8 @@ def feature_transform_regularizer(trans):
 
     k = trans.shape[1]
     I = torch.ones((k,k))
+    if trans.is_cuda:
+        I.cuda()
     AAT = torch.bmm(trans,torch.transpose(trans,2,1))
     norm = torch.norm(AAT-I, dim=(1,2))
     loss = torch.mean(norm)

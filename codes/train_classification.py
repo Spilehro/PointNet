@@ -17,8 +17,8 @@ parser.add_argument('--batchSize', type=int, default=32, help='input batch size'
 parser.add_argument('--num_points', type=int, default=2500, help='input batch size')
 parser.add_argument('--workers', type=int, help='number of data loading workers', default=4)
 parser.add_argument('--model', type=str, default='', help='model path')
-parser.add_argument('--nepoch', type=int, default=250, help='number of epochs to train for')
-parser.add_argument('--outf', type=str, default='cls', help='output folder')
+parser.add_argument('--nepoch', type=int, default=100, help='number of epochs to train for')
+parser.add_argument('--outf', type=str, default='cls2', help='output folder')
 parser.add_argument('--dataset', type=str, required=False, default='../../../shapenetcore_partanno_segmentation_benchmark_v0', help="dataset path")
 parser.add_argument('--feature_transform', action='store_true', help="use feature transform")
 
@@ -80,6 +80,6 @@ for epoch in range(opt.nepoch):
         
         pred_choice = pred.data.max(1)[1]
         correct = pred_choice.eq(target.data).cpu().sum()
-        print('[%d: %d/%d] train loss: %f accuracy: %f' % (epoch, i, num_batch, loss.item(), correct.item() / float(opt.batchSize)))
-
-    torch.save(classifier.state_dict(), '%s/cls_model_%d.pth' % (opt.outf, epoch))
+    print('[%d: %d/%d] train loss: %f accuracy: %f' % (epoch, i, num_batch, loss.item(), correct.item() / float(opt.batchSize)))
+    if(epoch%10==0):
+        torch.save(classifier.state_dict(), '%s/cls_model_%d.pth' % (opt.outf, epoch))
