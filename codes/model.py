@@ -14,7 +14,7 @@ class TNet(nn.Module):
         self. k = k
         # Each layer has batchnorm and relu on it
         # conv 3 64
-        self.conv1 = nn.Conv1d(in_channels = 3, out_channels = 64, kernel_size = 1,stride = 1)
+        self.conv1 = nn.Conv1d(in_channels = self.k, out_channels = 64, kernel_size = 1,stride = 1)
         self.bachnorm1 = nn.BatchNorm1d(num_features = 64)
         # conv 64 128
         self.conv2 = nn.Conv1d(in_channels = 64, out_channels = 128, kernel_size = 1, stride = 1)
@@ -87,15 +87,24 @@ class PointNetfeat(nn.Module):
         # You will need these extra outputs:
         # trans = output of applying TNet function to input
         trans = self.tNet_input(x)
+        x = torch.bmm(x.transpose(2,1),trans)
+        x = x.transpose(2,1)
+
         # trans_feat = output of applying TNet function to features (if feature_transform is true)
 
-        x = nn.functional.relu(self.batchnorm1(self.conv1(trans)))
-        trans_feat = x
+        x = nn.functional.relu(self.batchnorm1(self.conv1(x)))
+        
+        
+        trans_feat = None
 
         if self.feature_transform:
             trans_feat = self.tNet_feature(x)
+            x = torch.bmm(x.transpose(2,1),trans_feat)
+            x = x.transpose(2,1)
 
-        x =  nn.functional.relu(self.batchnorm2(self.conv2(trans_feat)))
+        pointfeat = x
+
+        x =  nn.functional.relu(self.batchnorm2(self.conv2(x)))
         x = self.batchnorm3(self.conv3(x))
         #x = self.max_pool(x)
         x= torch.max(x, 2, keepdim= True)[0]
@@ -134,13 +143,13 @@ class PointNetDenseCls(nn.Module):
         self.feature_transform = feature_transform
         # get global features + point features from PointNetfeat
         # conv 1088 512
-        self.conv1 = nn.Conv2d(in_channels = 1088, out_channels = 512, kernel_size = 3)
+        self.conv1 = nn.Conv1d(in_channels = 1088, out_channels = 512, kernel_size = 1)
         # conv 512 256
-        self.conv2 = nn.Conv2d(in_channels = 512, out_channels = 256, kernel_size = 3)
+        self.conv2 = nn.Conv1d(in_channels = 512, out_channels = 256, kernel_size = 1)
         # conv 256 128
-        self.conv1 = nn.Conv2d(in_channels = 256, out_channels = 128, kernel_size = 3)
+        self.conv3 = nn.Conv1d(in_channels = 256, out_channels = 128, kernel_size = 3)
         # conv 128 k
-        self.conv1 = nn.Conv2d(in_channels = 125, out_channels = k, kernel_size = 3)
+        self.conv4 = nn.Conv1d(in_channels = 125, out_channels = k, kernel_size = 3)
         # softmax
          
     
@@ -155,9 +164,10 @@ def feature_transform_regularizer(trans):
     # compute |((trans * trans.transpose) - I)|^2
 
     k = trans.shape[1]
-    I = torch.ones((k,k))
-    AAT = torch.bmm(trans,torch.transpose(trans,1,2))
-    loss = torch.mean((AAT-I)**2,dim=0)
+    I = torch.ones((1,k,k))
+    AAT = torch.bmm(trans,torch.transpose(trans,2,1))
+    norm = torch.norm(AAT-I, dim=(1,2))
+    loss = torch.mean(norm)
     
     return loss
 
