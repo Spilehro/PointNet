@@ -14,26 +14,25 @@ class TNet(nn.Module):
         self. k = k
         # Each layer has batchnorm and relu on it
         # conv 3 64
-        self.conv1 = nn.Conv2d(in_channels = 3, out_channels = 64, kernel_size = 1,stride = 1)
-        self.bachnorm1 = nn.BatchNorm2d(num_features = 64)
+        self.conv1 = nn.Conv1d(in_channels = 3, out_channels = 64, kernel_size = 1,stride = 1)
+        self.bachnorm1 = nn.BatchNorm1d(num_features = 64)
         # conv 64 128
-        self.conv2 = nn.Conv2d(in_channels = 64, out_channels = 128, kernel_size = 1, stride = 1)
-        self.bachnorm2 = nn.BatchNorm2d(num_features = 128)
+        self.conv2 = nn.Conv1d(in_channels = 64, out_channels = 128, kernel_size = 1, stride = 1)
+        self.bachnorm2 = nn.BatchNorm1d(num_features = 128)
         # conv 128 1024
-        self.conv3 = nn.Conv2d(in_channels = 128, out_channels = 1024, kernel_size = 1, stride = 1)
-        self.bachnorm3 = nn.BatchNorm2d(num_features = 1024)
+        self.conv3 = nn.Conv1d(in_channels = 128, out_channels = 1024, kernel_size = 1, stride = 1)
+        self.bachnorm3 = nn.BatchNorm1d(num_features = 1024)
         # max pool
-        self.max_pool = nn.MaxPool2d(kernel_size = 1)
         # fc 1024 512
         self.fc1 = nn.Linear(in_features = 1024, out_features = 512)
-        self.batchnorm_fc1 = nn.BatchNorm2d(num_features = 512)
+        self.batchnorm_fc1 = nn.BatchNorm1d(num_features = 512)
         # fc 512 256
         self.fc2 = nn.Linear(in_features = 512, out_features = 256)
-        self.batchnorm_fc2 = nn.BatchNorm2d(num_features = 256)
+        self.batchnorm_fc2 = nn.BatchNorm1d(num_features = 256)
         # fc 256 k*k (no batchnorm, no relu)
         self.fc3 = nn.Linear(in_features = 256, out_features = k*k)
         #weight and bias
-        self.weight = nn.Parameter(data= torch.zeros(256,k*k), requires_grad=True)
+        #self.weight = nn.Parameter(data= torch.zeros(256,k*k), requires_grad=True)
         self.bias = nn.Parameter(data=torch.zeros(1,k*k), requires_grad=True)
         # add bias
         # reshape
@@ -44,16 +43,17 @@ class TNet(nn.Module):
         x = nn.functional.relu(self.bachnorm2(self.conv2(x)))
         x = nn.functional.relu(self.bachnorm3(self.conv3(x)))
 
-        x = self.max_pool(x)
+        x = torch.max(x, 2, keepdim=True)[0]
+        x = x.view(-1, 1024)
 
-        x = nn.functional.relu(self.bachnorm_fc1(self.fc1(x)))
-        x = nn.functional.relu(self.bachnorm_fc2(self.fc2(x)))
+        x = nn.functional.relu(self.batchnorm_fc1(self.fc1(x)))
+        x = nn.functional.relu(self.batchnorm_fc2(self.fc2(x)))
         x = self.fc3(x)
 
-        x = x * self.weight
+        #x = x * self.weight
         x = x + self.bias
 
-        x = torch.reshape(x,(self.k,self.k))
+        x = torch.reshape(x,(x.shape[0],self.k,self.k))
         
         return x
 
@@ -64,20 +64,20 @@ class PointNetfeat(nn.Module):
         # Use TNet to apply transformation on input and multiply the input points with the transformation
         self.tNet_input = TNet(k=3)
         # conv 3 64
-        self.conv1 = nn.Conv2d(in_channels = 3, out_channels = 64, kernel_size = 3)
-        self.batchnorm1 = nn.BatchNorm2d(num_features = 64)
+        self.conv1 = nn.Conv1d(in_channels = 3, out_channels = 64, kernel_size = 1)
+        self.batchnorm1 = nn.BatchNorm1d(num_features = 64)
         # Use TNet to apply transformation on features and multiply the input features with the transformation 
         #                                                                       (if feature_transform is true)
         if feature_transform:
             self.tNet_feature = TNet(k=64)
         # conv 64 128
-        self.conv2 = nn.Conv2d(in_channels = 64, out_channels = 128, kernel_size = 3)
-        self.batchnorm2 = nn.BatchNorm2d(num_features = 128)
+        self.conv2 = nn.Conv1d(in_channels = 64, out_channels = 128, kernel_size = 1)
+        self.batchnorm2 = nn.BatchNorm1d(num_features = 128)
         # conv 128 1024 (no relu)
-        self.conv3 = nn.Conv2d(in_channels = 64, out_channels = 128, kernel_size = 3)
-        self.batchnorm3 = nn.BatchNorm2d(num_features = 128)
+        self.conv3 = nn.Conv1d(in_channels = 128, out_channels = 1024, kernel_size = 1)
+        self.batchnorm3 = nn.BatchNorm1d(num_features = 1024)
         # max pool
-        self.max_pool = nn.MaxPool2d(kernel_size = 1)
+        #self.max_pool = nn.MaxPool2d(kernel_size = 1)
         self.global_feat = global_feat
         self.feature_transform = feature_transform
 
@@ -96,8 +96,10 @@ class PointNetfeat(nn.Module):
             trans_feat = self.tNet_feature(x)
 
         x =  nn.functional.relu(self.batchnorm2(self.conv2(trans_feat)))
-        x =  nn.functional.relu(self.batchnorm3(self.conv3(trans_feat)))
-        x = self.max_pool(x)
+        x = self.batchnorm3(self.conv3(x))
+        #x = self.max_pool(x)
+        x= torch.max(x, 2, keepdim= True)[0]
+        x = x.view(-1,1024)
 
         if self.global_feat: # This shows if we're doing classification or segmentation
             return x, trans, trans_feat
