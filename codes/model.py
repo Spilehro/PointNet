@@ -164,7 +164,7 @@ def feature_transform_regularizer(trans):
     # compute |((trans * trans.transpose) - I)|^2
 
     k = trans.shape[1]
-    I = torch.ones((1,k,k))
+    I = torch.ones((k,k))
     AAT = torch.bmm(trans,torch.transpose(trans,2,1))
     norm = torch.norm(AAT-I, dim=(1,2))
     loss = torch.mean(norm)
