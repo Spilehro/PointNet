@@ -141,15 +141,20 @@ class PointNetDenseCls(nn.Module):
     def __init__(self, k = 2, feature_transform=False):
         super(PointNetDenseCls, self).__init__()
         self.feature_transform = feature_transform
+        self.k = k
         # get global features + point features from PointNetfeat
+        self.pointFeat = PointNetfeat(global_feat= False , feature_transform= self.feature_transform)
         # conv 1088 512
         self.conv1 = nn.Conv1d(in_channels = 1088, out_channels = 512, kernel_size = 1)
+        self.bn1 = nn.BatchNorm1d(num_features = 512)
         # conv 512 256
         self.conv2 = nn.Conv1d(in_channels = 512, out_channels = 256, kernel_size = 1)
+        self.bn2 = nn.BatchNorm1d(num_features = 256)
         # conv 256 128
-        self.conv3 = nn.Conv1d(in_channels = 256, out_channels = 128, kernel_size = 3)
+        self.conv3 = nn.Conv1d(in_channels = 256, out_channels = 128, kernel_size = 1)
+        self.bn3 = nn.BatchNorm1d(num_features = 128)
         # conv 128 k
-        self.conv4 = nn.Conv1d(in_channels = 125, out_channels = k, kernel_size = 3)
+        self.conv4 = nn.Conv1d(in_channels = 128, out_channels = k, kernel_size = 1)
         # softmax
          
     
@@ -158,6 +163,15 @@ class PointNetDenseCls(nn.Module):
         # trans = output of applying TNet function to input
         # trans_feat = output of applying TNet function to features (if feature_transform is true)
         # (you can directly get them from PointNetfeat)
+        x,trans,trans_feat = self.pointFeat(x)
+        x = F.relu(self.bn1(self.conv1(x)))
+        x = F.relu(self.bn2(self.conv2(x)))
+        x = F.relu(self.bn3(self.conv3(x)))
+        x = self.conv4(x)
+        x = x.transpose(2,1)
+        x =torch.softmax(x,dim=2)
+        
+        
         return x, trans, trans_feat
 
 def feature_transform_regularizer(trans):
@@ -198,6 +212,6 @@ if __name__ == '__main__':
     out, _, _ = cls(sim_data)
     print('class', out.size())
 
-    seg = PointNetDenseCls(k = 3)
+    seg = PointNetDenseCls(k = 4)
     out, _, _ = seg(sim_data)
     print('seg', out.size())

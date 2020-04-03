@@ -15,10 +15,10 @@ import numpy as np
 parser = argparse.ArgumentParser()
 parser.add_argument('--batchSize', type=int, default=4, help='input batch size')
 parser.add_argument('--workers', type=int, help='number of data loading workers', default=4)
-parser.add_argument('--nepoch', type=int, default=25, help='number of epochs to train for')
+parser.add_argument('--nepoch', type=int, default=100, help='number of epochs to train for')
 parser.add_argument('--model', type=str, default='', help='model path')
 parser.add_argument('--outf', type=str, default='seg', help='output folder')
-parser.add_argument('--dataset', type=str, required=True, help="dataset path")
+parser.add_argument('--dataset', type=str, required=False,default='../../../shapenetcore_partanno_segmentation_benchmark_v0', help="dataset path")
 parser.add_argument('--class_choice', type=str, default='Chair', help="class_choice")
 parser.add_argument('--feature_transform', action='store_true', help="use feature transform")
 
@@ -106,8 +106,8 @@ for epoch in range(opt.nepoch):
             pred_choice = pred.data.max(1)[1]
             correct = pred_choice.eq(target.data).cpu().sum()
             print('[%d: %d/%d] %s loss: %f accuracy: %f' % (epoch, i, num_batch, blue('test'), loss.item(), correct.item()/float(opt.batchSize * 2500)))
-
-    torch.save(classifier.state_dict(), '%s/seg_model_%s_%d.pth' % (opt.outf, opt.class_choice, epoch))
+    if(epoch%10==0 or epoch == opt.nepoch):
+        torch.save(classifier.state_dict(), '%s/seg_model_%s_%d.pth' % (opt.outf, opt.class_choice, epoch))
 
 ## benchmark mIOU
 shape_ious = []
