@@ -169,7 +169,7 @@ class PointNetDenseCls(nn.Module):
         x = F.relu(self.bn3(self.conv3(x)))
         x = self.conv4(x)
         x = x.transpose(2,1)
-        x =torch.softmax(x,dim=2)
+        x = torch.nn.functional.log_softmax(x, dim= 2)
         
         
         return x, trans, trans_feat
@@ -180,7 +180,7 @@ def feature_transform_regularizer(trans):
     k = trans.shape[1]
     I = torch.ones((k,k))
     if trans.is_cuda:
-        I.cuda()
+        I=I.cuda()
     AAT = torch.bmm(trans,torch.transpose(trans,2,1))
     norm = torch.norm(AAT-I, dim=(1,2))
     loss = torch.mean(norm)

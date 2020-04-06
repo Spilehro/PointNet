@@ -15,10 +15,10 @@ import matplotlib.pyplot as plt
 
 parser = argparse.ArgumentParser()
 
-parser.add_argument('--model', type=str, default='', help='model path')
-parser.add_argument('--idx', type=int, default=0, help='model index')
-parser.add_argument('--dataset', type=str, default='', help='dataset path')
-parser.add_argument('--class_choice', type=str, default='', help='class choice')
+parser.add_argument('--model', type=str, default='seg_bag/seg_model_Bag_90.pth', help='model path')
+parser.add_argument('--idx', type=int, default=10, help='model index')
+parser.add_argument('--dataset', type=str, default='../../../shapenetcore_partanno_segmentation_benchmark_v0', help='dataset path')
+parser.add_argument('--class_choice', type=str, default='Bag', help='class choice')
 
 opt = parser.parse_args()
 print(opt)
