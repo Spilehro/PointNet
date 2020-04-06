@@ -10,6 +10,7 @@ from dataset import ShapeNetDataset
 from model import PointNetCls, feature_transform_regularizer
 import torch.nn.functional as F
 from tqdm import tqdm
+import time
 
 
 parser = argparse.ArgumentParser()
@@ -17,7 +18,7 @@ parser.add_argument('--batchSize', type=int, default=32, help='input batch size'
 parser.add_argument('--num_points', type=int, default=2500, help='input batch size')
 parser.add_argument('--workers', type=int, help='number of data loading workers', default=4)
 parser.add_argument('--model', type=str, default='', help='model path')
-parser.add_argument('--nepoch', type=int, default=100, help='number of epochs to train for')
+parser.add_argument('--nepoch', type=int, default=1, help='number of epochs to train for')
 parser.add_argument('--outf', type=str, default='clsFeat', help='output folder')
 parser.add_argument('--dataset', type=str, required=False, default='../../../shapenetcore_partanno_segmentation_benchmark_v0', help="dataset path")
 parser.add_argument('--feature_transform', action='store_true', help="use feature transform")
@@ -53,14 +54,14 @@ try:
 except OSError:
     pass
 
-classifier = PointNetCls(k=num_classes, feature_transform=True)
+classifier = PointNetCls(k=num_classes, feature_transform=False)
 if opt.model != '':
     classifier.load_state_dict(torch.load(opt.model))
 optimizer = optim.Adam(classifier.parameters(), lr=0.001, betas=(0.9, 0.999))
 scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.5)
 classifier.cuda()
 num_batch = len(dataset) / opt.batchSize
-
+start = time.time()
 for epoch in range(opt.nepoch):
     scheduler.step()
     for i, data in enumerate(dataloader, 0):
@@ -83,3 +84,4 @@ for epoch in range(opt.nepoch):
     print('[%d: %d/%d] train loss: %f accuracy: %f' % (epoch, i, num_batch, loss.item(), correct.item() / float(opt.batchSize)))
     if(epoch%10==0 or epoch==opt.nepoch-1):
         torch.save(classifier.state_dict(), '%s/cls_model_%d.pth' % (opt.outf, epoch))
+print((time.time()-start))

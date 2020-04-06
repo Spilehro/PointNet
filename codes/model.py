@@ -188,6 +188,8 @@ def feature_transform_regularizer(trans):
     return loss
 
 if __name__ == '__main__':
+    test_reg_data =torch.rand(3,4,1)
+    loss = feature_transform_regularizer(test_reg_data)
     sim_data = Variable(torch.rand(32,3,2500))
     trans = TNet(k=3)
     out = trans(sim_data)

@@ -11,15 +11,16 @@ from model import PointNetDenseCls, feature_transform_regularizer
 import torch.nn.functional as F
 from tqdm import tqdm
 import numpy as np
+import time
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--batchSize', type=int, default=4, help='input batch size')
 parser.add_argument('--workers', type=int, help='number of data loading workers', default=4)
-parser.add_argument('--nepoch', type=int, default=0, help='number of epochs to train for')
-parser.add_argument('--model', type=str, default='seg_chairFeat/seg_model_Chair_90.pth', help='model path')
+parser.add_argument('--nepoch', type=int, default=1, help='number of epochs to train for')
+parser.add_argument('--model', type=str, default='', help='model path')
 parser.add_argument('--outf', type=str, default='seg_chairFeat', help='output folder')
 parser.add_argument('--dataset', type=str, required=False,default='../../../shapenetcore_partanno_segmentation_benchmark_v0', help="dataset path")
-parser.add_argument('--class_choice', type=str, default='Chair', help="class_choice")
+parser.add_argument('--class_choice', type=str, default='Bag', help="class_choice")
 parser.add_argument('--feature_transform', action='store_true', help="use feature transform")
 
 opt = parser.parse_args()
@@ -71,7 +72,7 @@ scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.5)
 classifier.cuda()
 
 num_batch = len(dataset) / opt.batchSize
-
+start = time.time()
 for epoch in range(opt.nepoch):
     scheduler.step()
     for i, data in enumerate(dataloader, 0):
@@ -109,10 +110,10 @@ for epoch in range(opt.nepoch):
             print('[%d: %d/%d] %s loss: %f accuracy: %f' % (epoch, i, num_batch, blue('test'), loss.item(), correct.item()/float(opt.batchSize * 2500)))
     if(epoch%10==0 or epoch == opt.nepoch-1):
         torch.save(classifier.state_dict(), '%s/seg_model_%s_%d.pth' % (opt.outf, opt.class_choice, epoch))
-
+print(time.time() - start)
 ## benchmark mIOU
 shape_ious = []
-for i,data in tqdm(enumerate(testdataloader, 0)):
+for i,data in tqdm(enumerate(dataloader, 0)):
     points, target = data
     points = points.transpose(2, 1)
     points, target = points.cuda(), target.cuda()
